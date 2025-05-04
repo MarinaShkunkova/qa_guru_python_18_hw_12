@@ -1,77 +1,116 @@
-import time
+import os
 
-from selene import browser, have, by, command, be
-from model.resourse import path
+from selene import have, command, be
+from selene.support.shared import browser
+
+import tests
+from model.data.users import User
+
+import allure
 
 
 class RegistrationPage:
 
+    @allure.step('Открыть страницу с формой регистрации')
     def open(self):
         browser.open('/automation-practice-form')
 
-    def remove_banner(self):
+    @allure.step('Удалить баннеры')
+    def remove_banners(self):
+        browser.driver.execute_script("$('#RightSide_Advertisement').remove()")
         browser.driver.execute_script("$('#fixedban').remove()")
         browser.driver.execute_script("$('footer').remove()")
-        browser.driver.execute_script("document.querySelector('body').style.position = 'relative'")
 
+    @allure.step('Проскроллить страницу')
     def scroll_page(self):
         browser.element('#submit').perform(command.js.scroll_into_view)
 
-    def fill_first_name(self, first_name):
-        browser.element("#firstName").type(first_name)
+    @allure.step('Указать имя')
+    def fill_first_name(self, value):
+        browser.element('#firstName').should(be.blank).type(value).click()
 
-    def fill_last_name(self, last_nane):
-        browser.element("#lastName").type(last_nane)
+    @allure.step('Указать фамилию')
+    def fill_last_name(self, value):
+        browser.element('#lastName').should(be.blank).type(value).click()
 
-    def fill_email(self, email):
-        browser.element("#userEmail").type(email)
+    @allure.step('Указать email')
+    def fill_email(self, value):
+        browser.element('#userEmail').should(be.blank).type(value).click()
 
-    def choose_gender(self, value):
-        browser.element(by.text(value)).perform(command.js.click)
+    @allure.step('Указать пол')
+    def fill_gender(self):
+        browser.element('//label[contains(text(), "Female")]').click()
 
-    def fill_phone_number(self, number):
-        browser.element("#userNumber").type(number)
+    @allure.step('Указать мобильный номер')
+    def fill_mobile_number(self, value):
+        browser.element('#userNumber').should(be.blank).type(value).click()
 
-    def fill_date_of_birthday(self, year, month, day):
+    @allure.step('Указать дату рождения')
+    def fill_date_of_birth(self):
         browser.element("#dateOfBirthInput").click()
-        browser.element('.react-datepicker__month-select').click().element(f'option[value="{month}"]').click()
-        browser.element('.react-datepicker__year-select').click().element(f"option[value='{year}']").click()
-        browser.element(f'.react-datepicker__day--0{day}').click()
+        browser.element('.react-datepicker__month-select').click().element('option[value="6"]').click()
+        browser.element('.react-datepicker__year-select').click().element('option[value="1980"]').click()
+        browser.element('.react-datepicker__day--022').click()
 
-    def choose_subject(self, subject):
-        browser.element("#subjectsInput").click().type(subject).press_enter()
+    @allure.step('Указать предмет')
+    def fill_subject(self, value):
+        browser.element('#subjectsInput').should(be.blank).type(value).press_enter()
 
-    def choose_hobbies(self, value):
-        browser.element(f'#hobbies-checkbox-{value}').perform(command.js.click())
+    @allure.step('Указать хобби')
+    def fill_hobby(self):
+        browser.element("label[for='hobbies-checkbox-2']").should(have.exact_text('Reading')).click()
 
-    def upload_picture(self, filename):
-        browser.element('#uploadPicture').set_value(path(filename))
-
-    def current_adress(self, *args):
-        browser.element('#currentAddress').type(*args)
-
-    def state_select(self, state):
-        browser.element('#state').click().element(by.text(state)).click()
-
-    def city_select(self, city):
-        browser.element('#city').click().element(by.text(city)).click()
-
-    def submit_button(self):
-        browser.element('#submit').with_(timeout=5).click()
-
-    def assert_registered_user_info(self, full_name, email, gender, mobile_phone, birthday, subjects, hobbies,
-                                    file_name, address, state_and_city):
-        browser.element(".table").all('td').even.should(
-            have.exact_texts(
-                full_name,
-                email,
-                gender,
-                mobile_phone,
-                birthday,
-                subjects,
-                hobbies,
-                file_name,
-                address,
-                state_and_city
+    @allure.step('Загрузить фотографию')
+    def upload_picture(self):
+        browser.element('#uploadPicture').set_value(
+            os.path.abspath(
+                os.path.join(os.path.dirname(tests.__file__), 'resources/picture.jpeg')
             )
         )
+
+    @allure.step('Указать адрес')
+    def fill_address(self, value):
+        browser.element('#currentAddress').should(be.blank).type(value)
+
+    @allure.step('Указать штат')
+    def fill_state(self):
+        browser.element("#state").click()
+        browser.all('[id^="react-select-3-option"]').element_by(have.exact_text('NCR')).click()
+
+    @allure.step('Указать город')
+    def fill_city(self):
+        browser.element("#city").click()
+        browser.all('[id^="react-select-4-option"]').element_by(have.exact_text('Gurgaon')).click()
+
+    @allure.step('Отправить форму')
+    def submit(self):
+        browser.element('#submit').click()
+
+    def register(self, user: User):
+        self.fill_first_name(user.first_name)
+        self.fill_last_name(user.last_name)
+        self.fill_email(user.email)
+        self.fill_gender()
+        self.fill_mobile_number(user.mobile_number)
+        self.fill_date_of_birth()
+        self.fill_subject(user.subject)
+        self.fill_hobby()
+        self.upload_picture()
+        self.fill_address(user.address)
+        self.fill_state()
+        self.fill_city()
+        self.submit()
+
+    @allure.step('Проверить сохраненные данные')
+    def should_have_registered(self, user: User):
+        browser.element('.table').all('td:nth-child(2)').should(have.texts(
+            f'{user.first_name} {user.last_name}',
+            user.email,
+            user.gender,
+            user.mobile_number,
+            f'{user.day_of_birth} {user.month_of_birth},{user.year_of_birth}',
+            user.subject,
+            user.hobby,
+            user.picture,
+            user.address,
+            f'{user.state} {user.city}'.strip()))
